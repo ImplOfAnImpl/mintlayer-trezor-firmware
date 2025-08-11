@@ -1,0 +1,93 @@
+name: "Release Mintlayer firmware"
+
+on:
+  push:
+    tags:
+      - 'mintlayer-v*'
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        model:
+          - { id: T2T1, name: "Model T",       filename: model_t }
+          - { id: T2B1, name: "Safe 3 rev. A", filename: safe3_rev_a }
+          - { id: T3B1, name: "Safe 3 rev. B", filename: safe3_rev_b }
+          - { id: T3T1, name: "Safe 5",        filename: safe5 }
+    runs-on: ubuntu-latest
+    env:
+      TREZOR_MODEL: ${{ matrix.model.id }}
+      # Note: the following are the default values, but it won't hurt to specify them explicitly.
+      BITCOIN_ONLY: 0
+      PYOPT: 1
+      PRODUCTION: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build
+        run: nix-shell --run "poetry run make -C core vendor build_firmware"
+
+      - name: Prepare artifacts
+        run: |
+          mkdir artifacts
+          mv core/build/firmware/firmware.bin artifacts/${{ matrix.model.filename }}.bin
+          echo ${{ matrix.model.id }} > artifacts/${{ matrix.model.filename }}_model_name.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: artifacts
+
+  create-release:
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/mintlayer-v}
+          echo "Version extracted: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate Release Body
+        id: generate_body
+        run: |
+          echo "BODY<<EOF" >> $GITHUB_OUTPUT
+          echo "Release version ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+
+          echo "Available files and their SHA-256 hashes:" >> $GITHUB_OUTPUT
+          echo "|Model name|Firmware file|Hash|" >> $GITHUB_OUTPUT
+          echo "|---|---|---|" >> $GITHUB_OUTPUT
+
+          for bin_file in artifacts/*.bin; do
+            model_name=$(cat "${bin_file%.bin}_model_name.txt")
+            # FIXME
+            echo "model_name = $model_name"
+            sha_sum=$(sha256sum "$bin_file" | awk '{print $1}')
+
+            new_bin_file_name=mintlayer_trezor_firmware_${{ steps.get_version.outputs.VERSION }}_$(basename "$bin_file")
+            mv "$bin_file" renamed_artifacts/$new_bin_file_name
+
+            echo "|$model_name|$new_bin_file_name|$sha_sum|" >> $GITHUB_OUTPUT
+          done
+
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: "renamed_artifacts/*"
+          artifactErrorsFailBuild: true
+          name: "Release ${{ steps.get_version.outputs.VERSION }}"
+          body: ${{ steps.generate_body.outputs.BODY }}
