@@ -25,7 +25,7 @@ jobs:
 
       - name: Build
         # run: nix-shell --run "poetry run make -C core vendor build_firmware"
-        run: bash build-docker.sh --models ${{ matrix.model.id }} --skip-bitcoinonly --targets firmware ${{ github.ref }}
+        run: bash build-docker.sh --models ${{ matrix.model.id }} --skip-bitcoinonly --targets firmware ${{ github.ref_name }}
 
       - name: Prepare artifacts
         run: |
