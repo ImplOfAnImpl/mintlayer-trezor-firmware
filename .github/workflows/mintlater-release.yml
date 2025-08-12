@@ -16,8 +16,15 @@ jobs:
           - { id: T3T1, name: "Safe 5",        filename: safe5 }
     name: Build for ${{ matrix.model.name }}
     runs-on: ubuntu-latest
+    env:
+      # Note: by default, build-docker.sh sets PRODUCTION to 1, which produces firmware with "Trezor"
+      # as the vendor and without a signature (which will make it unusable).
+      # Set it to 0 to get one with the "UNSAFE, DO NOT USE!" vendor and with the "DEVEL" signature.
+      PRODUCTION: 0
     steps:
+      # Note: no need to recurse into submodules here.
       - uses: actions/checkout@v4
+        
         # with:
         #   submodules: recursive
       
