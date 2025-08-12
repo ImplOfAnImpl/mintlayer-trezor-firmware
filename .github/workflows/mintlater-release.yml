@@ -24,14 +24,8 @@ jobs:
     steps:
       # Note: no need to recurse into submodules here.
       - uses: actions/checkout@v4
-        
-        # with:
-        #   submodules: recursive
-      
-      # - uses: ./.github/actions/environment
 
       - name: Build
-        # run: nix-shell --run "poetry run make -C core vendor build_firmware"
         run: bash build-docker.sh --models ${{ matrix.model.id }} --skip-bitcoinonly --targets firmware ${{ github.ref_name }}
 
       - name: Prepare artifacts
@@ -77,18 +71,8 @@ jobs:
 
           mkdir renamed_artifacts
 
-          # FIXME
-          ls -la artifacts
-
           for bin_file in artifacts/*.bin; do
-            # FIXME
-            echo "bin_file = $bin_file"
-
             model_name=$(cat "${bin_file%.bin}_model_name.txt")
-            # FIXME
-            echo "model_name = $model_name"
-            # FIXME
-            sha_sum=$(sha256sum "$bin_file" | awk '{print $1}')
 
             new_bin_file_name=mintlayer_trezor_firmware_${{ steps.get_version.outputs.VERSION }}_$(basename "$bin_file")
             mv "$bin_file" renamed_artifacts/$new_bin_file_name
