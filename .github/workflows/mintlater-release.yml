@@ -16,26 +16,21 @@ jobs:
           - { id: T3T1, name: "Safe 5",        filename: safe5 }
     name: Build for ${{ matrix.model.name }}
     runs-on: ubuntu-latest
-    env:
-      TREZOR_MODEL: ${{ matrix.model.id }}
-      # Note: the following are the default values, but it won't hurt to specify them explicitly.
-      BITCOIN_ONLY: 0
-      PYOPT: 1
-      PRODUCTION: 1
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        # with:
+        #   submodules: recursive
       
-      - uses: ./.github/actions/environment
+      # - uses: ./.github/actions/environment
 
       - name: Build
-        run: nix-shell --run "poetry run make -C core vendor build_firmware"
+        # run: nix-shell --run "poetry run make -C core vendor build_firmware"
+        run: bash build-docker.sh --models ${{ matrix.model.id }} --skip-bitcoinonly --targets firmware ${{ github.ref }}
 
       - name: Prepare artifacts
         run: |
           mkdir artifacts
-          mv core/build/firmware/firmware.bin artifacts/${{ matrix.model.filename }}.bin
+          mv build/core-${{ matrix.model.id }}/firmware/firmware.bin artifacts/${{ matrix.model.filename }}.bin
           echo ${{ matrix.model.name }} > artifacts/${{ matrix.model.filename }}_model_name.txt
 
       - name: Upload artifacts
